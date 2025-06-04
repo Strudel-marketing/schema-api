@@ -33,20 +33,43 @@ def generate_schema():
         html = requests.get(url).text
         soup = BeautifulSoup(html, 'html.parser')
         text = soup.get_text()
-        extract = adv.extract.extract_text([text]).to_dict()
+        extract = adv.extract_text([text]).to_dict()
+
+        title = soup.title.string if soup.title else ""
+        description = soup.find("meta", attrs={"name": "description"}).get("content", "") if soup.find("meta", attrs={"name": "description"}) else ""
+
+        # 🔍 Try to find existing schema type
+        existing_types = []
+        for script in soup.find_all("script", type="application/ld+json"):
+            try:
+                parsed = script.string
+                if not parsed:
+                    continue
+                data = json.loads(parsed)
+                if isinstance(data, list):
+                    existing_types.extend([item.get("@type") for item in data if "@type" in item])
+                elif "@type" in data:
+                    existing_types.append(data["@type"])
+            except Exception:
+                continue
+
+        main_type = existing_types[0] if existing_types else "WebPage"
 
         schema = {
             "@context": "https://schema.org",
-            "@type": "WebPage",
+            "@type": main_type,
             "url": url,
-            "name": soup.title.string if soup.title else "",
-            "description": soup.find("meta", attrs={"name": "description"}).get("content", "") if soup.find("meta", attrs={"name": "description"}) else ""
+            "name": title,
+            "description": description
         }
 
         return jsonify({
+            "from_existing_schema": existing_types,
+            "used_type": main_type,
             "schema": schema,
             "extract": extract
         })
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
