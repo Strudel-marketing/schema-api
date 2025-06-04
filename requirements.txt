@@ -1,3 +1,5 @@
 flask
 advertools
 pandas
+requests
+beautifulsoup4
