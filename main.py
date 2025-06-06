@@ -1,36 +1,33 @@
-from flask import Flask, request, jsonify
+from fastapi import FastAPI, Request
+from pydantic import BaseModel
+from fastapi.responses import JSONResponse
 import advertools as adv
-import pandas as pd
 import requests
 from bs4 import BeautifulSoup
+import json
 
-app = Flask(__name__)
+app = FastAPI()
 
-# 🔹 1. sitemap endpoint
-@app.route("/sitemap", methods=["POST"])
-def process_sitemap():
-    data = request.get_json()
-    sitemap_url = data.get("url")
-    if not sitemap_url:
-        return jsonify({"error": "Missing 'url'"}), 400
+class URLRequest(BaseModel):
+    url: str
+    level: int | None = 1
 
+class TextRequest(BaseModel):
+    text: str
+
+@app.post("/sitemap")
+async def process_sitemap(payload: URLRequest):
     try:
-        df = adv.sitemap_to_df(sitemap_url)
+        df = adv.sitemap_to_df(payload.url)
         urls = df["loc"].dropna().tolist()
-        return jsonify({"urls": urls[:100]})
+        return {"urls": urls[:100]}
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
-# 🔹 2. schema creation from URL
-@app.route("/schema", methods=["POST"])
-def generate_schema():
-    data = request.get_json()
-    url = data.get("url")
-    if not url:
-        return jsonify({"error": "Missing 'url'"}), 400
-
+@app.post("/schema")
+async def generate_schema(payload: URLRequest):
     try:
-        html = requests.get(url).text
+        html = requests.get(payload.url).text
         soup = BeautifulSoup(html, 'html.parser')
         text = soup.get_text()
         extract = adv.extract_text([text]).to_dict()
@@ -38,7 +35,6 @@ def generate_schema():
         title = soup.title.string if soup.title else ""
         description = soup.find("meta", attrs={"name": "description"}).get("content", "") if soup.find("meta", attrs={"name": "description"}) else ""
 
-        # 🔍 Try to find existing schema type
         existing_types = []
         for script in soup.find_all("script", type="application/ld+json"):
             try:
@@ -58,66 +54,54 @@ def generate_schema():
         schema = {
             "@context": "https://schema.org",
             "@type": main_type,
-            "url": url,
+            "url": payload.url,
             "name": title,
             "description": description
         }
 
-        return jsonify({
+        return {
             "from_existing_schema": existing_types,
             "used_type": main_type,
             "schema": schema,
             "extract": extract
-        })
+        }
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
-# 🔹 3. basic extract from text
-@app.route("/extract", methods=["POST"])
-def extract_text():
-    data = request.get_json()
-    text = data.get("text", "")
+@app.post("/extract")
+async def extract_text(payload: TextRequest):
     try:
-        extract = adv.extract.extract_text([text])
-        return jsonify(extract.to_dict())
+        extract = adv.extract.extract_text([payload.text])
+        return extract.to_dict()
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
-# 🔹 4. placeholder for entity validation
-@app.route("/validate-entity", methods=["POST"])
-def validate_entity():
-    data = request.get_json()
-    return jsonify({"message": "Validation logic coming soon", "received": data})
+@app.post("/validate-entity")
+async def validate_entity(request: Request):
+    data = await request.json()
+    return {"message": "Validation logic coming soon", "received": data}
 
-# 🔹 5. clustering by URL structure
-@app.route("/cluster", methods=["POST"])
-def cluster_urls():
-    data = request.get_json()
-    sitemap_url = data.get("url")
-    level = data.get("level", 1)
-
-    if not sitemap_url:
-        return jsonify({"error": "Missing 'url'"}), 400
-
+@app.post("/cluster")
+async def cluster_urls(payload: URLRequest):
     try:
-        sitemap_df = adv.sitemap_to_df(sitemap_url)
+        sitemap_df = adv.sitemap_to_df(payload.url)
         urls = sitemap_df["loc"].dropna().tolist()
-
         url_df = adv.url_to_df(urls)
-        dir_col = f"dir_{level}"
+        dir_col = f"dir_{payload.level}"
         if dir_col not in url_df.columns:
-            return jsonify({"error": f"Invalid level: {level}. Available: dir_1 to dir_{len(url_df.columns)-1}"}), 400
+            return JSONResponse(status_code=400, content={
+                "error": f"Invalid level: {payload.level}. Available: dir_1 to dir_{len(url_df.columns)-1}"
+            })
 
         grouped = url_df[dir_col].value_counts().to_dict()
-
-        return jsonify({
+        return {
             "cluster_by": dir_col,
             "clusters": grouped
-        })
+        }
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
-# run
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000)
+@app.get("/")
+async def health():
+    return {"status": "running"}
