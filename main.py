@@ -30,7 +30,7 @@ async def generate_schema(payload: URLRequest):
         html = requests.get(payload.url).text
         soup = BeautifulSoup(html, 'html.parser')
         text = soup.get_text()
-        extract = adv.extract_text([text]).to_dict()
+        extract = adv.extract.extract_text([text]).to_dict()
 
         title = soup.title.string if soup.title else ""
         description = soup.find("meta", attrs={"name": "description"}).get("content", "") if soup.find("meta", attrs={"name": "description"}) else ""
