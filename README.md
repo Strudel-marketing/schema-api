@@ -1,4 +1,10 @@
 
+# 📦 schema-api
+
+A FastAPI-based service for crawling pages, analyzing structure, generating structured data (JSON-LD), and organizing URLs by logic or cluster.
+
+---
+
 ## 🚀 API Endpoints
 
 ### 🗺️ `POST /sitemap`
@@ -32,7 +38,7 @@ Extracts up to 100 URLs from a sitemap using `advertools`.
 ### 🧠 `POST /schema`
 
 **Description:**  
-Fetches a page, extracts existing JSON-LD schema types, metadata, and generates a new JSON-LD block.
+Fetches a page, extracts metadata and existing JSON-LD schemas, and returns a generated schema suggestion.
 
 **Request Body:**
 ```json
@@ -58,7 +64,9 @@ Fetches a page, extracts existing JSON-LD schema types, metadata, and generates 
     "description": "Example description"
   },
   "extract": {
-    "word_count": 150
+    "word_count": 150,
+    "n_tokens": 170,
+    "avg_token_length": 4.5
   }
 }
 ```
@@ -68,7 +76,7 @@ Fetches a page, extracts existing JSON-LD schema types, metadata, and generates 
 ### ✂️ `POST /extract`
 
 **Description:**  
-Extracts NLP features (word count, token count, etc.) from raw text using `advertools`.
+Extracts NLP features from raw text using `advertools`.
 
 **Request Body:**
 ```json
@@ -85,7 +93,8 @@ Extracts NLP features (word count, token count, etc.) from raw text using `adver
 ```json
 {
   "word_count": 7,
-  "n_tokens": 8
+  "n_tokens": 8,
+  "avg_token_length": 4.0
 }
 ```
 
@@ -94,7 +103,7 @@ Extracts NLP features (word count, token count, etc.) from raw text using `adver
 ### 🧪 `POST /validate-entity`
 
 **Description:**  
-Placeholder endpoint for future schema validation. Currently echoes back the input.
+Stub endpoint for future validation logic. Returns the input for now.
 
 **Request Body:**
 ```json
@@ -124,7 +133,7 @@ Placeholder endpoint for future schema validation. Currently echoes back the inp
 ### 🧭 `POST /cluster`
 
 **Description:**  
-Clusters URLs from a sitemap by directory level.
+Clusters URLs from a sitemap by directory level using `advertools`.
 
 **Request Body:**
 ```json
@@ -134,10 +143,10 @@ Clusters URLs from a sitemap by directory level.
 }
 ```
 
-| Field  | Type   | Required | Description                           |
-|--------|--------|----------|---------------------------------------|
-| url    | string | ✅       | URL of the sitemap                    |
-| level  | int    | ✅       | Directory level (e.g., 1, 2, 3...)    |
+| Field  | Type   | Required | Description                        |
+|--------|--------|----------|------------------------------------|
+| url    | string | ✅       | URL of the sitemap                 |
+| level  | int    | ✅       | Directory level (e.g., 1, 2, 3...) |
 
 **Response Example:**
 ```json
@@ -147,6 +156,31 @@ Clusters URLs from a sitemap by directory level.
     "blog": 18,
     "products": 5
   }
+}
+```
+
+---
+
+### 📄 `GET /existing-schema`
+
+**Description:**  
+Extracts all JSON-LD structured data (`<script type="application/ld+json">`) from a webpage.
+
+**Query Parameter:**
+```
+?url=https://example.com
+```
+
+**Response Example:**
+```json
+{
+  "schemas": [
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "Example Article"
+    }
+  ]
 }
 ```
 
