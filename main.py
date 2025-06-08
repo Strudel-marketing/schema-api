@@ -106,10 +106,10 @@ async def cluster_urls(payload: URLRequest):
 async def health():
     return {"status": "running"}
 
-@app.get("/existing-schema")
-async def extract_existing_schema(url: str):
+@app.post("/existing-schema")
+async def extract_existing_schema(payload: URLRequest):
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(payload.url, timeout=10)
         response.raise_for_status()
     except Exception as e:
         return JSONResponse(status_code=400, content={"error": str(e)})
