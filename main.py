@@ -31,7 +31,7 @@ async def generate_schema(payload: URLRequest):
         soup = BeautifulSoup(html, 'html.parser')
         text = soup.get_text()
         try:
-    extract = adv.extract.extract_text([text]).to_dict()
+        extract = adv.extract.extract_text([text]).to_dict() 
 except AttributeError:
     extract = {"text": text[:500] + "..." if len(text) > 500 else text}
 
