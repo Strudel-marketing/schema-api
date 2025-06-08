@@ -105,3 +105,25 @@ async def cluster_urls(payload: URLRequest):
 @app.get("/")
 async def health():
     return {"status": "running"}
+
+@app.get("/existing-schema")
+async def extract_existing_schema(url: str):
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
+
+    soup = BeautifulSoup(response.text, "html.parser")
+    scripts = soup.find_all("script", type="application/ld+json")
+
+    schemas = []
+    for script in scripts:
+        try:
+            data = json.loads(script.string)
+            schemas.append(data)
+        except:
+            continue
+
+    return {"schemas": schemas}
+
