@@ -20,7 +20,22 @@ async def process_sitemap(payload: URLRequest):
     try:
         df = adv.sitemap_to_df(payload.url)
         urls = df["loc"].dropna().tolist()
-        return {"urls": urls[:100]}
+        total_urls = len(urls)
+
+        # מגבלה רכה
+        limited_urls = urls[:1500]
+
+        # בדיקה אם מדובר ב-sitemap index (עפ"י העמודות)
+        sitemap_sources = df.get('sitemap', None)
+        sitemaps_found = sitemap_sources.nunique() if sitemap_sources is not None else 1
+
+        return {
+            "sitemaps_found": int(sitemaps_found),
+            "total_urls": total_urls,
+            "returned_urls": len(limited_urls),
+            "urls": limited_urls
+        }
+
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
