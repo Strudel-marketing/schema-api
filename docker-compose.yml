@@ -1,5 +1,8 @@
+version: "3.8"
+
 services:
   schema-api:
+    container_name: schema-api
     image: schema-api-schema-api
     build: .
     ports:
@@ -10,9 +13,10 @@ services:
       - "traefik.http.routers.schema.entrypoints=websecure"
       - "traefik.http.routers.schema.tls=true"
       - "traefik.http.routers.schema.tls.certresolver=letsencrypt"
-      - "traefik.http.services.schema.loadbalancer.server.port=3015"
+      - "traefik.http.routers.schema.service=schema-api"
+      - "traefik.http.services.schema-api.loadbalancer.server.port=3015"
     networks:
-      - coolify  # רק הרשת של Traefik
+      - coolify
 
 networks:
   coolify:
