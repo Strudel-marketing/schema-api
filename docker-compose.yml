@@ -1,18 +1,19 @@
 services:
   schema-api:
     build: .
+    ports:
+      - "3015:3015"
     labels:
-      - traefik.enable=true
-      - traefik.http.routers.schema-api.rule=Host("schema.strudel.marketing")
-      - traefik.http.routers.schema-api.entrypoints=https
-      - traefik.http.routers.schema-api.tls=true
-      - traefik.http.routers.schema-api.tls.certresolver=letsencrypt
-      - traefik.http.services.schema-api.loadbalancer.server.port=3015
-      - traefik.http.routers.schema-api.middlewares=gzip
-      - traefik.http.middlewares.gzip.compress=true
+      - "traefik.enable=true"
+      - "traefik.http.routers.schema.rule=Host(`schema.strudel.marketing`)"
+      - "traefik.http.routers.schema.entrypoints=https"
+      - "traefik.http.routers.schema.tls=true"
+      - "traefik.http.routers.schema.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.schema.middlewares=gzip"
+      - "traefik.http.middlewares.gzip.compress=true"
+      - "traefik.http.services.schema.loadbalancer.server.port=3015"
     networks:
       - traefik
-    command: python app.py
 
 networks:
   traefik:
