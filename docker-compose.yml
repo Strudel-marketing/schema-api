@@ -1,20 +1,19 @@
 services:
   schema-api:
+    image: schema-api-schema-api
     build: .
+    ports:
+      - "3015:3015"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.schema.rule=Host(`schema.strudel.marketing`)"
-      - "traefik.http.routers.schema.entrypoints=https"
+      - "traefik.http.routers.schema.entrypoints=websecure"
       - "traefik.http.routers.schema.tls=true"
       - "traefik.http.routers.schema.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.schema.middlewares=gzip"
-      - "traefik.http.middlewares.gzip.compress=true"
       - "traefik.http.services.schema.loadbalancer.server.port=3015"
-    ports:
-      - "3015:3015"
     networks:
-      - coolify   # 👈 כאן שם הרשת של Traefik
+      - coolify  # רשת חיצונית של Traefik
 
 networks:
-  coolify:        # 👈 או traefik אם זה השם אצלך
+  coolify:
     external: true
