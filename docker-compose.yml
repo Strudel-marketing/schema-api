@@ -12,7 +12,7 @@ services:
       - "traefik.http.routers.schema.tls.certresolver=letsencrypt"
       - "traefik.http.services.schema.loadbalancer.server.port=3015"
     networks:
-      - coolify  # רשת חיצונית של Traefik
+      - coolify  # רק הרשת של Traefik
 
 networks:
   coolify:
