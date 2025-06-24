@@ -1,8 +1,6 @@
 services:
   schema-api:
     build: .
-    ports:
-      - "3015:3015"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.schema.rule=Host(`schema.strudel.marketing`)"
@@ -12,9 +10,11 @@ services:
       - "traefik.http.routers.schema.middlewares=gzip"
       - "traefik.http.middlewares.gzip.compress=true"
       - "traefik.http.services.schema.loadbalancer.server.port=3015"
+    ports:
+      - "3015:3015"
     networks:
-      - traefik
+      - coolify   # 👈 כאן שם הרשת של Traefik
 
 networks:
-  traefik:
+  coolify:        # 👈 או traefik אם זה השם אצלך
     external: true
