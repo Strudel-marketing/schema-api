@@ -1,2 +1,0 @@
-Flask
-git+https://github.com/Schema-Org/schema-scraper.git
