@@ -4,9 +4,8 @@ WORKDIR /app
 
 COPY . .
 
-RUN pip install --no-cache-dir -r requirements.txt
-
-ENV PORT=8080
-EXPOSE 8080
+# הוספת git לפני התקנת requirements
+RUN apt-get update && apt-get install -y git && \
+    pip install --no-cache-dir -r requirements.txt
 
 CMD ["python", "app.py"]
