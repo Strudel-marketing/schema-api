@@ -1,0 +1,5 @@
+services:
+  schema-api:
+    build: .
+    ports:
+      - "3015:3015"
