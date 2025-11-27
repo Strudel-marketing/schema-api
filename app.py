@@ -7,6 +7,7 @@ from urllib.parse import urljoin, urlparse
 import re
 
 app = Flask(__name__)
+app.url_map.strict_slashes = False
 
 # Schema.org recommended properties for common types
 RECOMMENDED_PROPERTIES = {
