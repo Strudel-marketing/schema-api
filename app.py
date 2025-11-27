@@ -171,7 +171,7 @@ def validate_schema(schema, index=0):
             'message': 'Missing @type property',
             'severity': 'error'
         })
-        return {'errors': errors, 'warnings': warnings, 'type': 'Unknown'}
+        return {'errors': errors, 'warnings': warnings, 'type': 'Unknown', 'valid': False}
 
     # Check required properties
     required = REQUIRED_PROPERTIES.get(schema_type, [])
