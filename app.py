@@ -4,6 +4,7 @@ import extruct
 from w3lib.html import get_base_url
 from urllib.parse import urlparse
 import re
+from recommendations import analyze_schemas, SCHEMA_REQUIREMENTS
 
 app = Flask(__name__)
 app.url_map.strict_slashes = False
@@ -679,14 +680,22 @@ def analyze():
         # Extract OpenGraph
         opengraph = extract_opengraph(schemas.get('opengraph'))
 
-        # Generate actions
-        actions = generate_actions(entities, identity, url)
+        # === NEW: Comprehensive recommendations engine ===
+        analysis = analyze_schemas(entities, url, opengraph)
 
         # Check Rich Results eligibility
         rich_results = check_rich_results_eligibility(entities)
 
-        # Calculate health
-        health_status = calculate_health(actions)
+        # Calculate health based on new analysis
+        severity_counts = analysis['by_severity']
+        if severity_counts['critical'] > 0:
+            health_status = 'broken'
+        elif severity_counts['high'] > 3:
+            health_status = 'needs_work'
+        elif severity_counts['high'] > 0 or severity_counts['medium'] > 5:
+            health_status = 'good'
+        else:
+            health_status = 'healthy'
 
         # Build response
         return jsonify({
@@ -694,13 +703,15 @@ def analyze():
 
             'summary': {
                 'health': health_status,
-                'critical_issues': len(actions['critical']),
-                'recommended_actions': len(actions['recommended']),
+                'page_type': analysis['page_type'],
+                'schemas_found': analysis['schemas_found'],
+                'total_issues': analysis['total_issues'],
+                'by_severity': severity_counts,
                 'entities_found': len(graph['entities']),
                 'json_ld_blocks': len(json_ld)
             },
 
-            'actions': actions,
+            'recommendations': analysis['recommendations'],
 
             'identity': identity,
 
