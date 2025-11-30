@@ -207,15 +207,273 @@ SCHEMA_REQUIREMENTS = {
     },
     'Service': {
         'required': ['name', 'provider'],
-        'recommended': ['description', 'serviceType', 'areaServed', 'offers', 'aggregateRating'],
-        'rich_result': None,
-        'priority': 65
+        'recommended': ['description', 'serviceType', 'areaServed', 'offers', 'aggregateRating', 'hasOfferCatalog'],
+        'rich_result': 'Service Rich Results',
+        'priority': 75
     },
     'Offer': {
         'required': ['price', 'priceCurrency'],
         'recommended': ['availability', 'url', 'priceValidUntil', 'itemCondition', 'seller'],
         'rich_result': None,
         'priority': 80
+    },
+    # =========================================================================
+    # INDUSTRY-SPECIFIC SCHEMAS
+    # =========================================================================
+    'Restaurant': {
+        'required': ['name', 'address'],
+        'recommended': ['servesCuisine', 'menu', 'telephone', 'openingHoursSpecification', 'image',
+                       'priceRange', 'aggregateRating', 'review', 'acceptsReservations', 'geo'],
+        'rich_result': 'Restaurant Rich Results / Local Pack',
+        'priority': 90
+    },
+    'HealthAndBeautyBusiness': {
+        'required': ['name', 'address'],
+        'recommended': ['telephone', 'openingHoursSpecification', 'image', 'priceRange',
+                       'aggregateRating', 'review', 'geo', 'areaServed', 'hasOfferCatalog'],
+        'rich_result': 'Local Business Panel',
+        'priority': 85
+    },
+    'MedicalBusiness': {
+        'required': ['name', 'address'],
+        'recommended': ['telephone', 'openingHoursSpecification', 'image', 'medicalSpecialty',
+                       'aggregateRating', 'review', 'geo', 'healthPlanNetworkId', 'isAcceptingNewPatients'],
+        'rich_result': 'Medical Business Panel',
+        'priority': 90
+    },
+    'Physician': {
+        'required': ['name'],
+        'recommended': ['image', 'telephone', 'address', 'medicalSpecialty', 'hospitalAffiliation',
+                       'aggregateRating', 'review', 'availableService'],
+        'rich_result': 'Physician Panel',
+        'priority': 85
+    },
+    'DaySpa': {
+        'required': ['name', 'address'],
+        'recommended': ['telephone', 'openingHoursSpecification', 'image', 'priceRange',
+                       'aggregateRating', 'review', 'geo', 'hasOfferCatalog', 'amenityFeature'],
+        'rich_result': 'Local Business Panel',
+        'priority': 85
+    },
+    'BeautySalon': {
+        'required': ['name', 'address'],
+        'recommended': ['telephone', 'openingHoursSpecification', 'image', 'priceRange',
+                       'aggregateRating', 'review', 'geo', 'hasOfferCatalog'],
+        'rich_result': 'Local Business Panel',
+        'priority': 85
+    },
+    'HomeAndConstructionBusiness': {
+        'required': ['name', 'address'],
+        'recommended': ['telephone', 'image', 'priceRange', 'areaServed', 'aggregateRating',
+                       'review', 'geo', 'hasOfferCatalog', 'paymentAccepted'],
+        'rich_result': 'Local Business Panel',
+        'priority': 85
+    },
+    'Electrician': {
+        'required': ['name', 'address'],
+        'recommended': ['telephone', 'areaServed', 'aggregateRating', 'review', 'image',
+                       'priceRange', 'hasOfferCatalog', 'availableService'],
+        'rich_result': 'Local Business Panel',
+        'priority': 85
+    },
+    'Plumber': {
+        'required': ['name', 'address'],
+        'recommended': ['telephone', 'areaServed', 'aggregateRating', 'review', 'image',
+                       'priceRange', 'hasOfferCatalog', 'availableService'],
+        'rich_result': 'Local Business Panel',
+        'priority': 85
+    },
+    'RoofingContractor': {
+        'required': ['name', 'address'],
+        'recommended': ['telephone', 'areaServed', 'aggregateRating', 'review', 'image',
+                       'priceRange', 'hasOfferCatalog'],
+        'rich_result': 'Local Business Panel',
+        'priority': 85
+    },
+    'GeneralContractor': {
+        'required': ['name', 'address'],
+        'recommended': ['telephone', 'areaServed', 'aggregateRating', 'review', 'image',
+                       'priceRange', 'hasOfferCatalog', 'knowsAbout'],
+        'rich_result': 'Local Business Panel',
+        'priority': 85
+    },
+    'HVACBusiness': {
+        'required': ['name', 'address'],
+        'recommended': ['telephone', 'areaServed', 'aggregateRating', 'review', 'image',
+                       'priceRange', 'hasOfferCatalog'],
+        'rich_result': 'Local Business Panel',
+        'priority': 85
+    },
+    'LodgingBusiness': {
+        'required': ['name', 'address'],
+        'recommended': ['telephone', 'checkinTime', 'checkoutTime', 'image', 'priceRange',
+                       'aggregateRating', 'review', 'amenityFeature', 'starRating', 'numberOfRooms'],
+        'rich_result': 'Hotel Rich Results',
+        'priority': 90
+    },
+    'Hotel': {
+        'required': ['name', 'address'],
+        'recommended': ['telephone', 'checkinTime', 'checkoutTime', 'image', 'priceRange',
+                       'aggregateRating', 'review', 'amenityFeature', 'starRating', 'numberOfRooms', 'petsAllowed'],
+        'rich_result': 'Hotel Rich Results',
+        'priority': 90
+    },
+    'RealEstateAgent': {
+        'required': ['name', 'address'],
+        'recommended': ['telephone', 'areaServed', 'aggregateRating', 'review', 'image', 'url'],
+        'rich_result': 'Local Business Panel',
+        'priority': 80
+    },
+    'RealEstateListing': {
+        'required': ['name', 'address'],
+        'recommended': ['price', 'priceCurrency', 'image', 'description', 'numberOfRooms',
+                       'floorSize', 'geo', 'datePosted', 'validThrough'],
+        'rich_result': 'Real Estate Listing',
+        'priority': 85
+    },
+    'AutoDealer': {
+        'required': ['name', 'address'],
+        'recommended': ['telephone', 'openingHoursSpecification', 'image', 'priceRange',
+                       'aggregateRating', 'review', 'geo', 'brand'],
+        'rich_result': 'Auto Dealer Panel',
+        'priority': 85
+    },
+    'AutoRepair': {
+        'required': ['name', 'address'],
+        'recommended': ['telephone', 'openingHoursSpecification', 'image', 'priceRange',
+                       'aggregateRating', 'review', 'geo', 'areaServed'],
+        'rich_result': 'Local Business Panel',
+        'priority': 85
+    },
+    'FinancialService': {
+        'required': ['name', 'address'],
+        'recommended': ['telephone', 'openingHoursSpecification', 'image', 'aggregateRating',
+                       'review', 'areaServed', 'hasOfferCatalog'],
+        'rich_result': 'Local Business Panel',
+        'priority': 80
+    },
+    'LegalService': {
+        'required': ['name', 'address'],
+        'recommended': ['telephone', 'image', 'aggregateRating', 'review', 'areaServed',
+                       'knowsAbout', 'hasOfferCatalog'],
+        'rich_result': 'Local Business Panel',
+        'priority': 80
+    },
+    'Attorney': {
+        'required': ['name'],
+        'recommended': ['telephone', 'address', 'image', 'aggregateRating', 'review',
+                       'areaServed', 'knowsAbout'],
+        'rich_result': 'Attorney Panel',
+        'priority': 80
+    },
+    'ProfessionalService': {
+        'required': ['name', 'address'],
+        'recommended': ['telephone', 'image', 'aggregateRating', 'review', 'areaServed',
+                       'hasOfferCatalog', 'knowsAbout'],
+        'rich_result': 'Local Business Panel',
+        'priority': 75
+    },
+    # =========================================================================
+    # CONTENT & MEDIA SCHEMAS
+    # =========================================================================
+    'Podcast': {
+        'required': ['name'],
+        'recommended': ['description', 'image', 'author', 'publisher', 'url', 'webFeed'],
+        'rich_result': 'Podcast Rich Results',
+        'priority': 80
+    },
+    'PodcastEpisode': {
+        'required': ['name', 'url'],
+        'recommended': ['description', 'datePublished', 'duration', 'associatedMedia',
+                       'partOfSeries', 'episodeNumber'],
+        'rich_result': 'Podcast Episode Rich Results',
+        'priority': 80
+    },
+    'PodcastSeries': {
+        'required': ['name', 'url'],
+        'recommended': ['description', 'image', 'author', 'publisher', 'webFeed', 'numberOfEpisodes'],
+        'rich_result': 'Podcast Series Rich Results',
+        'priority': 80
+    },
+    'MusicRecording': {
+        'required': ['name'],
+        'recommended': ['byArtist', 'inAlbum', 'duration', 'isrcCode', 'datePublished'],
+        'rich_result': 'Music Rich Results',
+        'priority': 70
+    },
+    'MusicAlbum': {
+        'required': ['name', 'byArtist'],
+        'recommended': ['image', 'datePublished', 'numTracks', 'track', 'genre'],
+        'rich_result': 'Music Album Rich Results',
+        'priority': 70
+    },
+    'MusicGroup': {
+        'required': ['name'],
+        'recommended': ['image', 'genre', 'album', 'sameAs', 'description'],
+        'rich_result': 'Music Artist Knowledge Panel',
+        'priority': 70
+    },
+    'TVSeries': {
+        'required': ['name'],
+        'recommended': ['image', 'description', 'actor', 'director', 'numberOfSeasons',
+                       'numberOfEpisodes', 'aggregateRating'],
+        'rich_result': 'TV Series Carousel',
+        'priority': 75
+    },
+    'CreativeWork': {
+        'required': ['name'],
+        'recommended': ['author', 'datePublished', 'description', 'image'],
+        'rich_result': None,
+        'priority': 60
+    },
+    # =========================================================================
+    # EDUCATIONAL SCHEMAS
+    # =========================================================================
+    'EducationalOrganization': {
+        'required': ['name', 'address'],
+        'recommended': ['telephone', 'image', 'url', 'sameAs', 'aggregateRating', 'review'],
+        'rich_result': 'Educational Organization Panel',
+        'priority': 80
+    },
+    'CollegeOrUniversity': {
+        'required': ['name', 'address'],
+        'recommended': ['telephone', 'image', 'url', 'sameAs', 'aggregateRating'],
+        'rich_result': 'University Knowledge Panel',
+        'priority': 85
+    },
+    'EducationalOccupationalProgram': {
+        'required': ['name', 'provider'],
+        'recommended': ['description', 'timeToComplete', 'occupationalCategory', 'programType',
+                       'offers', 'educationalProgramMode'],
+        'rich_result': 'Program Rich Results',
+        'priority': 75
+    },
+    # =========================================================================
+    # E-COMMERCE EXTENDED
+    # =========================================================================
+    'ProductGroup': {
+        'required': ['name'],
+        'recommended': ['description', 'image', 'brand', 'hasVariant', 'variesBy'],
+        'rich_result': 'Product Group Rich Results',
+        'priority': 80
+    },
+    'OfferCatalog': {
+        'required': ['name'],
+        'recommended': ['itemListElement', 'numberOfItems', 'description'],
+        'rich_result': None,
+        'priority': 65
+    },
+    'ShippingDeliveryTime': {
+        'required': ['handlingTime', 'transitTime'],
+        'recommended': ['cutoffTime', 'businessDays'],
+        'rich_result': 'Shipping Info in Product Results',
+        'priority': 70
+    },
+    'MerchantReturnPolicy': {
+        'required': ['applicableCountry', 'returnPolicyCategory'],
+        'recommended': ['merchantReturnDays', 'returnMethod', 'returnFees'],
+        'rich_result': 'Return Policy in Product Results',
+        'priority': 70
     }
 }
 
@@ -224,65 +482,340 @@ SCHEMA_REQUIREMENTS = {
 # =============================================================================
 
 PAGE_TYPE_INDICATORS = {
+    # =========================================================================
+    # GENERAL PAGE TYPES
+    # =========================================================================
     'homepage': {
         'url_patterns': [r'^https?://[^/]+/?$', r'^https?://[^/]+/?(index\.html?)?$'],
         'expected_schemas': ['Organization', 'WebSite', 'WebPage'],
         'optional_schemas': ['LocalBusiness', 'ItemList']
     },
+    'about': {
+        'url_patterns': [r'/about', r'/about-us', r'/who-we-are', r'/our-story', r'/company'],
+        'expected_schemas': ['Organization', 'WebPage', 'BreadcrumbList'],
+        'optional_schemas': ['Person', 'LocalBusiness']
+    },
+    'contact': {
+        'url_patterns': [r'/contact', r'/contact-us', r'/get-in-touch', r'/reach-us'],
+        'expected_schemas': ['Organization', 'ContactPage', 'BreadcrumbList'],
+        'optional_schemas': ['LocalBusiness', 'PostalAddress']
+    },
+    'service': {
+        'url_patterns': [r'/service/', r'/services/', r'/our-services', r'/what-we-do'],
+        'expected_schemas': ['Service', 'BreadcrumbList', 'Organization'],
+        'optional_schemas': ['FAQPage', 'HowTo', 'Offer']
+    },
+    'pricing': {
+        'url_patterns': [r'/pricing', r'/prices', r'/plans', r'/packages'],
+        'expected_schemas': ['WebPage', 'BreadcrumbList'],
+        'optional_schemas': ['Offer', 'Product', 'Service', 'FAQPage']
+    },
+    'landing': {
+        'url_patterns': [r'/lp/', r'/landing/', r'/campaign/', r'/promo/'],
+        'expected_schemas': ['WebPage'],
+        'optional_schemas': ['Product', 'Service', 'Offer', 'FAQPage', 'Review']
+    },
+    'testimonials': {
+        'url_patterns': [r'/testimonials', r'/reviews', r'/customer-stories', r'/success-stories'],
+        'expected_schemas': ['WebPage', 'BreadcrumbList'],
+        'optional_schemas': ['Review', 'AggregateRating', 'ItemList']
+    },
+    'portfolio': {
+        'url_patterns': [r'/portfolio', r'/work/', r'/projects/', r'/case-stud'],
+        'expected_schemas': ['WebPage', 'BreadcrumbList'],
+        'optional_schemas': ['CreativeWork', 'ItemList', 'ImageGallery']
+    },
+    # =========================================================================
+    # E-COMMERCE PAGE TYPES
+    # =========================================================================
     'product': {
-        'url_patterns': [r'/product/', r'/p/', r'/item/', r'/shop/'],
+        'url_patterns': [r'/product/', r'/p/', r'/item/', r'/shop/.+/', r'/מוצר/'],
         'expected_schemas': ['Product', 'BreadcrumbList'],
-        'optional_schemas': ['AggregateRating', 'Review', 'FAQPage']
+        'optional_schemas': ['AggregateRating', 'Review', 'FAQPage', 'Offer']
     },
     'category': {
-        'url_patterns': [r'/category/', r'/c/', r'/collection/', r'/shop/'],
+        'url_patterns': [r'/category/', r'/c/', r'/collection/', r'/קטגוריה/'],
         'expected_schemas': ['ItemList', 'BreadcrumbList', 'CollectionPage'],
-        'optional_schemas': ['FAQPage']
+        'optional_schemas': ['FAQPage', 'Product']
     },
+    'collection': {
+        'url_patterns': [r'/collection/', r'/collections/', r'/sale/', r'/deals/', r'/new-arrivals'],
+        'expected_schemas': ['ItemList', 'BreadcrumbList', 'CollectionPage'],
+        'optional_schemas': ['Offer', 'Product']
+    },
+    'cart': {
+        'url_patterns': [r'/cart', r'/basket', r'/shopping-cart'],
+        'expected_schemas': ['WebPage'],
+        'optional_schemas': []
+    },
+    'checkout': {
+        'url_patterns': [r'/checkout', r'/order', r'/payment'],
+        'expected_schemas': ['WebPage'],
+        'optional_schemas': []
+    },
+    'comparison': {
+        'url_patterns': [r'/compare', r'/comparison', r'/vs/', r'-vs-'],
+        'expected_schemas': ['WebPage', 'BreadcrumbList'],
+        'optional_schemas': ['Product', 'ItemList']
+    },
+    # =========================================================================
+    # CONTENT PAGE TYPES
+    # =========================================================================
     'article': {
-        'url_patterns': [r'/blog/', r'/article/', r'/post/', r'/news/'],
+        'url_patterns': [r'/blog/', r'/article/', r'/post/', r'/news/', r'/מאמר/'],
         'expected_schemas': ['Article', 'BreadcrumbList', 'WebPage'],
-        'optional_schemas': ['Person', 'FAQPage', 'HowTo']
+        'optional_schemas': ['Person', 'FAQPage', 'HowTo', 'VideoObject']
     },
-    'local_business': {
-        'url_patterns': [r'/location/', r'/store/', r'/branch/', r'/contact'],
-        'expected_schemas': ['LocalBusiness', 'Organization'],
-        'optional_schemas': ['FAQPage', 'OpeningHoursSpecification']
+    'blog_home': {
+        'url_patterns': [r'/blog/?$', r'/articles/?$', r'/news/?$'],
+        'expected_schemas': ['Blog', 'BreadcrumbList', 'ItemList'],
+        'optional_schemas': ['Organization']
     },
     'faq': {
-        'url_patterns': [r'/faq', r'/help/', r'/support/', r'/questions/'],
+        'url_patterns': [r'/faq', r'/help/', r'/support/', r'/questions/', r'/שאלות'],
         'expected_schemas': ['FAQPage', 'BreadcrumbList'],
-        'optional_schemas': ['HowTo']
+        'optional_schemas': ['HowTo', 'Article']
     },
-    'event': {
-        'url_patterns': [r'/event/', r'/events/', r'/webinar/', r'/conference/'],
-        'expected_schemas': ['Event', 'BreadcrumbList'],
-        'optional_schemas': ['Organization', 'Place']
-    },
-    'recipe': {
-        'url_patterns': [r'/recipe/', r'/recipes/'],
-        'expected_schemas': ['Recipe', 'BreadcrumbList'],
-        'optional_schemas': ['VideoObject', 'HowTo', 'ItemList']
+    'howto': {
+        'url_patterns': [r'/how-to/', r'/guide/', r'/tutorial/', r'/איך-ל'],
+        'expected_schemas': ['HowTo', 'BreadcrumbList'],
+        'optional_schemas': ['Article', 'VideoObject', 'FAQPage']
     },
     'video': {
-        'url_patterns': [r'/video/', r'/watch/', r'/v/'],
+        'url_patterns': [r'/video/', r'/watch/', r'/v/', r'/וידאו/'],
         'expected_schemas': ['VideoObject', 'BreadcrumbList'],
-        'optional_schemas': ['Article', 'HowTo']
+        'optional_schemas': ['Article', 'HowTo', 'Course']
     },
+    'podcast': {
+        'url_patterns': [r'/podcast/', r'/episode/', r'/פודקאסט/'],
+        'expected_schemas': ['PodcastEpisode', 'BreadcrumbList'],
+        'optional_schemas': ['PodcastSeries', 'Person', 'Organization']
+    },
+    'person': {
+        'url_patterns': [r'/author/', r'/team/', r'/staff/', r'/profile/', r'/expert/'],
+        'expected_schemas': ['Person', 'WebPage', 'BreadcrumbList'],
+        'optional_schemas': ['Organization', 'Article']
+    },
+    # =========================================================================
+    # LOCAL BUSINESS PAGE TYPES
+    # =========================================================================
+    'local_business': {
+        'url_patterns': [r'/location/', r'/store/', r'/branch/', r'/סניף/'],
+        'expected_schemas': ['LocalBusiness', 'Organization', 'BreadcrumbList'],
+        'optional_schemas': ['FAQPage', 'AggregateRating', 'Review']
+    },
+    'store_locator': {
+        'url_patterns': [r'/locations', r'/stores', r'/branches', r'/find-us', r'/סניפים'],
+        'expected_schemas': ['Organization', 'BreadcrumbList'],
+        'optional_schemas': ['LocalBusiness', 'ItemList']
+    },
+    # =========================================================================
+    # INDUSTRY-SPECIFIC: MEDSPA / HEALTH & BEAUTY
+    # =========================================================================
+    'medspa': {
+        'url_patterns': [r'/medspa', r'/med-spa', r'/aesthetic', r'/מדספא', r'/אסתטיק'],
+        'expected_schemas': ['HealthAndBeautyBusiness', 'Organization', 'BreadcrumbList'],
+        'optional_schemas': ['MedicalBusiness', 'Service', 'FAQPage', 'AggregateRating']
+    },
+    'medspa_treatment': {
+        'url_patterns': [r'/treatment/', r'/procedure/', r'/טיפול/', r'/botox', r'/filler', r'/laser'],
+        'expected_schemas': ['Service', 'MedicalBusiness', 'BreadcrumbList'],
+        'optional_schemas': ['FAQPage', 'HowTo', 'Review', 'Offer']
+    },
+    'beauty_salon': {
+        'url_patterns': [r'/salon/', r'/beauty/', r'/hair/', r'/nail/', r'/מספרה/', r'/יופי/'],
+        'expected_schemas': ['BeautySalon', 'BreadcrumbList'],
+        'optional_schemas': ['Service', 'FAQPage', 'AggregateRating', 'Offer']
+    },
+    'spa': {
+        'url_patterns': [r'/spa/', r'/wellness/', r'/massage/', r'/ספא/'],
+        'expected_schemas': ['DaySpa', 'BreadcrumbList'],
+        'optional_schemas': ['Service', 'FAQPage', 'AggregateRating', 'Offer']
+    },
+    # =========================================================================
+    # INDUSTRY-SPECIFIC: HOME SERVICES / CONSTRUCTION
+    # =========================================================================
+    'solar': {
+        'url_patterns': [r'/solar/', r'/panels/', r'/photovoltaic/', r'/סולארי/', r'/פאנלים/'],
+        'expected_schemas': ['HomeAndConstructionBusiness', 'Service', 'BreadcrumbList'],
+        'optional_schemas': ['FAQPage', 'HowTo', 'Review', 'Offer', 'Product']
+    },
+    'solar_installation': {
+        'url_patterns': [r'/installation/', r'/התקנה/', r'/התקנת-פאנלים/'],
+        'expected_schemas': ['Service', 'BreadcrumbList'],
+        'optional_schemas': ['HowTo', 'FAQPage', 'Offer', 'Review']
+    },
+    'carpentry': {
+        'url_patterns': [r'/carpentry/', r'/woodwork/', r'/cabinet/', r'/נגרות/', r'/נגריה/', r'/ארונות/'],
+        'expected_schemas': ['HomeAndConstructionBusiness', 'Service', 'BreadcrumbList'],
+        'optional_schemas': ['FAQPage', 'Review', 'Offer', 'ImageGallery']
+    },
+    'contractor': {
+        'url_patterns': [r'/contractor/', r'/construction/', r'/renovation/', r'/remodel/', r'/שיפוץ/', r'/קבלן/'],
+        'expected_schemas': ['GeneralContractor', 'Service', 'BreadcrumbList'],
+        'optional_schemas': ['FAQPage', 'Review', 'Offer', 'HowTo']
+    },
+    'electrician': {
+        'url_patterns': [r'/electrician/', r'/electrical/', r'/חשמלאי/', r'/חשמל/'],
+        'expected_schemas': ['Electrician', 'Service', 'BreadcrumbList'],
+        'optional_schemas': ['FAQPage', 'Review', 'Offer']
+    },
+    'plumber': {
+        'url_patterns': [r'/plumber/', r'/plumbing/', r'/אינסטלטור/', r'/אינסטלציה/'],
+        'expected_schemas': ['Plumber', 'Service', 'BreadcrumbList'],
+        'optional_schemas': ['FAQPage', 'Review', 'Offer']
+    },
+    'hvac': {
+        'url_patterns': [r'/hvac/', r'/air-conditioning/', r'/heating/', r'/מיזוג/', r'/מזגנים/'],
+        'expected_schemas': ['HVACBusiness', 'Service', 'BreadcrumbList'],
+        'optional_schemas': ['FAQPage', 'Review', 'Offer', 'Product']
+    },
+    'roofing': {
+        'url_patterns': [r'/roofing/', r'/roof/', r'/גגות/', r'/איטום/'],
+        'expected_schemas': ['RoofingContractor', 'Service', 'BreadcrumbList'],
+        'optional_schemas': ['FAQPage', 'Review', 'Offer']
+    },
+    # =========================================================================
+    # INDUSTRY-SPECIFIC: HOSPITALITY
+    # =========================================================================
+    'restaurant': {
+        'url_patterns': [r'/restaurant/', r'/dining/', r'/menu/', r'/מסעדה/'],
+        'expected_schemas': ['Restaurant', 'BreadcrumbList'],
+        'optional_schemas': ['Menu', 'FAQPage', 'AggregateRating', 'Review']
+    },
+    'hotel': {
+        'url_patterns': [r'/hotel/', r'/resort/', r'/accommodation/', r'/מלון/', r'/לינה/'],
+        'expected_schemas': ['Hotel', 'BreadcrumbList'],
+        'optional_schemas': ['FAQPage', 'AggregateRating', 'Review', 'Offer']
+    },
+    'room': {
+        'url_patterns': [r'/room/', r'/suite/', r'/חדר/'],
+        'expected_schemas': ['HotelRoom', 'BreadcrumbList'],
+        'optional_schemas': ['Offer', 'AggregateRating']
+    },
+    # =========================================================================
+    # INDUSTRY-SPECIFIC: REAL ESTATE
+    # =========================================================================
+    'real_estate': {
+        'url_patterns': [r'/property/', r'/listing/', r'/נכס/', r'/דירה/', r'/בית/'],
+        'expected_schemas': ['RealEstateListing', 'BreadcrumbList'],
+        'optional_schemas': ['Place', 'Offer', 'ImageGallery']
+    },
+    'real_estate_agent': {
+        'url_patterns': [r'/agent/', r'/realtor/', r'/תיווך/', r'/מתווך/'],
+        'expected_schemas': ['RealEstateAgent', 'Person', 'BreadcrumbList'],
+        'optional_schemas': ['Organization', 'Review', 'AggregateRating']
+    },
+    # =========================================================================
+    # INDUSTRY-SPECIFIC: AUTOMOTIVE
+    # =========================================================================
+    'auto_dealer': {
+        'url_patterns': [r'/dealer/', r'/dealership/', r'/cars/', r'/vehicles/', r'/רכב/', r'/סוכנות/'],
+        'expected_schemas': ['AutoDealer', 'BreadcrumbList'],
+        'optional_schemas': ['Product', 'Offer', 'AggregateRating', 'Review']
+    },
+    'vehicle': {
+        'url_patterns': [r'/vehicle/', r'/car/', r'/auto/', r'/רכב/'],
+        'expected_schemas': ['Vehicle', 'Product', 'BreadcrumbList'],
+        'optional_schemas': ['Offer', 'AggregateRating', 'Review']
+    },
+    'auto_repair': {
+        'url_patterns': [r'/repair/', r'/garage/', r'/mechanic/', r'/מוסך/', r'/תיקון/'],
+        'expected_schemas': ['AutoRepair', 'BreadcrumbList'],
+        'optional_schemas': ['Service', 'FAQPage', 'Review']
+    },
+    # =========================================================================
+    # INDUSTRY-SPECIFIC: PROFESSIONAL SERVICES
+    # =========================================================================
+    'legal': {
+        'url_patterns': [r'/attorney/', r'/lawyer/', r'/law/', r'/legal/', r'/עורך-דין/', r'/משפט/'],
+        'expected_schemas': ['LegalService', 'BreadcrumbList'],
+        'optional_schemas': ['Attorney', 'Person', 'FAQPage', 'Review']
+    },
+    'financial': {
+        'url_patterns': [r'/financial/', r'/accounting/', r'/tax/', r'/רואה-חשבון/', r'/פיננסי/', r'/מס/'],
+        'expected_schemas': ['FinancialService', 'BreadcrumbList'],
+        'optional_schemas': ['Service', 'FAQPage', 'Review']
+    },
+    'medical': {
+        'url_patterns': [r'/doctor/', r'/clinic/', r'/medical/', r'/health/', r'/רופא/', r'/מרפאה/'],
+        'expected_schemas': ['MedicalBusiness', 'BreadcrumbList'],
+        'optional_schemas': ['Physician', 'FAQPage', 'Review', 'Service']
+    },
+    # =========================================================================
+    # INDUSTRY-SPECIFIC: EDUCATION
+    # =========================================================================
+    'course': {
+        'url_patterns': [r'/course/', r'/class/', r'/learn/', r'/training/', r'/קורס/', r'/לימודים/'],
+        'expected_schemas': ['Course', 'BreadcrumbList'],
+        'optional_schemas': ['Organization', 'VideoObject', 'FAQPage', 'Review', 'Offer']
+    },
+    'program': {
+        'url_patterns': [r'/program/', r'/degree/', r'/certification/', r'/תוכנית/'],
+        'expected_schemas': ['EducationalOccupationalProgram', 'BreadcrumbList'],
+        'optional_schemas': ['Course', 'Organization', 'FAQPage']
+    },
+    'school': {
+        'url_patterns': [r'/school/', r'/academy/', r'/institute/', r'/בית-ספר/', r'/אקדמיה/'],
+        'expected_schemas': ['EducationalOrganization', 'BreadcrumbList'],
+        'optional_schemas': ['Course', 'FAQPage', 'Review']
+    },
+    # =========================================================================
+    # INDUSTRY-SPECIFIC: EVENTS
+    # =========================================================================
+    'event': {
+        'url_patterns': [r'/event/', r'/events/', r'/webinar/', r'/conference/', r'/אירוע/'],
+        'expected_schemas': ['Event', 'BreadcrumbList'],
+        'optional_schemas': ['Organization', 'Place', 'Offer', 'Person']
+    },
+    'event_venue': {
+        'url_patterns': [r'/venue/', r'/hall/', r'/location/', r'/אולם/'],
+        'expected_schemas': ['EventVenue', 'Place', 'BreadcrumbList'],
+        'optional_schemas': ['Organization', 'FAQPage', 'Review']
+    },
+    # =========================================================================
+    # INDUSTRY-SPECIFIC: SOFTWARE / TECH
+    # =========================================================================
+    'software': {
+        'url_patterns': [r'/software/', r'/app/', r'/download/', r'/tool/', r'/אפליקציה/', r'/תוכנה/'],
+        'expected_schemas': ['SoftwareApplication', 'BreadcrumbList'],
+        'optional_schemas': ['FAQPage', 'Review', 'AggregateRating', 'Offer']
+    },
+    # =========================================================================
+    # INDUSTRY-SPECIFIC: MEDIA & ENTERTAINMENT
+    # =========================================================================
+    'recipe': {
+        'url_patterns': [r'/recipe/', r'/recipes/', r'/מתכון/'],
+        'expected_schemas': ['Recipe', 'BreadcrumbList'],
+        'optional_schemas': ['VideoObject', 'HowTo', 'ItemList', 'AggregateRating']
+    },
+    'book': {
+        'url_patterns': [r'/book/', r'/ebook/', r'/ספר/'],
+        'expected_schemas': ['Book', 'BreadcrumbList'],
+        'optional_schemas': ['Review', 'AggregateRating', 'Person', 'Offer']
+    },
+    'music': {
+        'url_patterns': [r'/music/', r'/album/', r'/song/', r'/track/', r'/מוזיקה/'],
+        'expected_schemas': ['MusicRecording', 'BreadcrumbList'],
+        'optional_schemas': ['MusicAlbum', 'MusicGroup', 'Person']
+    },
+    'movie': {
+        'url_patterns': [r'/movie/', r'/film/', r'/סרט/'],
+        'expected_schemas': ['Movie', 'BreadcrumbList'],
+        'optional_schemas': ['Review', 'AggregateRating', 'Person', 'VideoObject']
+    },
+    # =========================================================================
+    # CAREERS
+    # =========================================================================
     'job': {
-        'url_patterns': [r'/job/', r'/jobs/', r'/career/', r'/position/'],
+        'url_patterns': [r'/job/', r'/jobs/', r'/career/', r'/position/', r'/משרה/', r'/דרושים/'],
         'expected_schemas': ['JobPosting', 'BreadcrumbList'],
         'optional_schemas': ['Organization']
     },
-    'course': {
-        'url_patterns': [r'/course/', r'/class/', r'/learn/', r'/training/'],
-        'expected_schemas': ['Course', 'BreadcrumbList'],
-        'optional_schemas': ['Organization', 'VideoObject']
-    },
-    'person': {
-        'url_patterns': [r'/author/', r'/team/', r'/about-us/', r'/profile/'],
-        'expected_schemas': ['Person', 'WebPage'],
-        'optional_schemas': ['Organization', 'Article']
+    'careers_page': {
+        'url_patterns': [r'/careers/?$', r'/jobs/?$', r'/דרושים/?$', r'/קריירה/?$'],
+        'expected_schemas': ['WebPage', 'BreadcrumbList', 'Organization'],
+        'optional_schemas': ['ItemList', 'JobPosting']
     }
 }
 
