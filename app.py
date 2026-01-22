@@ -751,6 +751,80 @@ def extract_schema():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/extract-entities', methods=['POST'])
+def extract_entities():
+    """
+    Extract all schema entities with full data.
+    Returns a flat list of entities with their complete JSON-LD data.
+    Designed for direct import into Neo4j.
+    """
+    data = request.get_json()
+    url = data.get('url')
+    if not url:
+        return jsonify({'error': 'URL is required'}), 400
+
+    try:
+        html = fetch_page(url)
+        base_url = get_base_url(html, url)
+        metadata = extruct.extract(html, base_url=base_url, syntaxes=['json-ld'])
+
+        json_ld = metadata.get('json-ld', [])
+
+        # Flatten all entities from @graph arrays
+        entities = []
+        for block_idx, block in enumerate(json_ld):
+            context = block.get('@context', 'https://schema.org')
+
+            if '@graph' in block:
+                for entity_idx, entity in enumerate(block['@graph']):
+                    types = get_types_list(entity)
+                    if not types:
+                        continue
+
+                    entities.append({
+                        'id': entity.get('@id'),
+                        'type': types,
+                        'category': categorize_entity(types),
+                        'data': entity,
+                        'source': {
+                            'block': block_idx,
+                            'location': '@graph',
+                            'index': entity_idx
+                        }
+                    })
+            elif block.get('@type'):
+                types = get_types_list(block)
+                entities.append({
+                    'id': block.get('@id'),
+                    'type': types,
+                    'category': categorize_entity(types),
+                    'data': block,
+                    'source': {
+                        'block': block_idx,
+                        'location': 'root',
+                        'index': 0
+                    }
+                })
+
+        # Count by type
+        type_counts = {}
+        for entity in entities:
+            for t in entity['type']:
+                type_counts[t] = type_counts.get(t, 0) + 1
+
+        return jsonify({
+            'url': url,
+            'entities': entities,
+            'summary': {
+                'total_entities': len(entities),
+                'json_ld_blocks': len(json_ld),
+                'types': type_counts
+            }
+        })
+    except requests.exceptions.RequestException as e:
+        return jsonify({'error': f'Failed to fetch URL: {str(e)}'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=3015)
