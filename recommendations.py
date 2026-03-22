@@ -6,6 +6,7 @@ Rich, context-aware SEO recommendations for structured data
 from typing import Dict, List, Any, Optional, Set
 from dataclasses import dataclass
 from enum import Enum
+import re
 
 
 class Severity(Enum):
@@ -899,7 +900,6 @@ class RecommendationEngine:
 
     def _detect_page_type(self) -> str:
         """Detect page type from URL and content"""
-        import re
         url_lower = self.url.lower()
 
         for page_type, indicators in PAGE_TYPE_INDICATORS.items():
@@ -926,7 +926,6 @@ class RecommendationEngine:
             return 'video'
 
         # Check if homepage
-        import re
         if re.match(r'^https?://[^/]+/?$', self.url):
             return 'homepage'
 
@@ -1137,7 +1136,6 @@ class RecommendationEngine:
 
     def _check_date_formats(self):
         """Check for invalid date formats"""
-        import re
         date_fields = ['datePublished', 'dateModified', 'startDate', 'endDate', 'uploadDate', 'datePosted', 'validThrough']
         valid_date_pattern = r'^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})?)?$'
 
@@ -1161,7 +1159,6 @@ class RecommendationEngine:
 
     def _check_url_formats(self):
         """Check for invalid URL formats"""
-        import re
         url_fields = ['url', 'image', 'logo', 'sameAs', 'mainEntityOfPage', 'contentUrl', 'embedUrl', 'thumbnailUrl']
 
         for entity in self.entities:
