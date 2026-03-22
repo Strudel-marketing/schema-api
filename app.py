@@ -48,7 +48,7 @@ def _fetch_static(url):
         'User-Agent': USER_AGENT,
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9,he;q=0.8',
-        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept-Encoding': 'gzip, deflate',
     }
     response = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
     response.raise_for_status()
