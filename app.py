@@ -3,10 +3,12 @@ import requests
 import extruct
 from w3lib.html import get_base_url
 from urllib.parse import urlparse
+import logging
 from recommendations import analyze_schemas, SCHEMA_REQUIREMENTS
 
 app = Flask(__name__)
 app.url_map.strict_slashes = False
+logger = logging.getLogger(__name__)
 
 # Social platforms for sameAs analysis
 SOCIAL_PLATFORMS = {
@@ -30,12 +32,46 @@ def validate_url(url):
     return parsed.scheme in ('http', 'https') and bool(parsed.netloc)
 
 
-def fetch_page(url):
-    """Fetch HTML content from URL"""
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-    response = requests.get(url, headers=headers, timeout=15)
+USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+
+
+def fetch_page(url, render_js=False):
+    """Fetch HTML content from URL, optionally rendering JavaScript"""
+    if render_js:
+        return _fetch_with_js(url)
+    return _fetch_static(url)
+
+
+def _fetch_static(url):
+    """Fetch static HTML via requests"""
+    headers = {
+        'User-Agent': USER_AGENT,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9,he;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+    }
+    response = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
     response.raise_for_status()
     return response.text
+
+
+def _fetch_with_js(url):
+    """Fetch page with JavaScript rendering via Playwright"""
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        logger.warning('Playwright not installed, falling back to static fetch')
+        return _fetch_static(url)
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(user_agent=USER_AGENT)
+            page.goto(url, wait_until='networkidle', timeout=30000)
+            html = page.content()
+            return html
+        finally:
+            browser.close()
 
 
 def extract_schemas(html, url):
@@ -233,45 +269,92 @@ def build_identity(entities, page_url):
 
 
 def build_graph(entities):
-    """Build entity graph with relationships"""
+    """Build entity graph with relationships, including inline entities"""
     graph_entities = []
     connections = []
+    seen_ids = set()
+    inline_counter = 0
 
     # Relationship fields to track
     relationship_fields = ['isPartOf', 'publisher', 'author', 'about', 'mainEntity',
                           'provider', 'organizer', 'performer', 'itemReviewed',
-                          'parentOrganization', 'subOrganization', 'memberOf']
+                          'parentOrganization', 'subOrganization', 'memberOf',
+                          'brand', 'offers', 'location', 'address', 'worksFor',
+                          'review', 'aggregateRating', 'image', 'mainEntityOfPage']
 
-    for entity in entities:
-        types = get_types_list(entity)
-        if not types:
-            continue
-
-        entity_id = entity.get('@id')
-
+    def add_entity(entity_id, types, name, category):
+        """Add entity to graph if not already seen"""
+        key = entity_id or f'{category}:{name}'
+        if key and key in seen_ids:
+            return
+        if key:
+            seen_ids.add(key)
         graph_entities.append({
             'id': entity_id,
             'types': types,
-            'name': entity.get('name'),
-            'category': categorize_entity(types)
+            'name': name,
+            'category': category
         })
 
-        # Extract relationships
-        for rel_field in relationship_fields:
-            rel_value = entity.get(rel_field)
-            if rel_value:
-                target_id = None
-                if isinstance(rel_value, dict):
-                    target_id = rel_value.get('@id')
-                elif isinstance(rel_value, str) and rel_value.startswith('#'):
-                    target_id = rel_value
+    def process_entity(entity, parent_id=None, relation=None):
+        """Process an entity and its inline children recursively"""
+        nonlocal inline_counter
 
-                if target_id and entity_id:
+        types = get_types_list(entity)
+        if not types:
+            return
+
+        entity_id = entity.get('@id')
+        name = entity.get('name')
+        category = categorize_entity(types)
+
+        # Generate a synthetic ID for inline entities without @id
+        if not entity_id and parent_id:
+            inline_counter += 1
+            entity_id = f'_:inline_{inline_counter}'
+
+        add_entity(entity_id, types, name, category)
+
+        # Connect to parent if this is an inline entity
+        if parent_id and relation and entity_id:
+            connections.append({
+                'from': parent_id,
+                'relation': relation,
+                'to': entity_id
+            })
+
+        # Scan all fields for nested typed objects
+        for field_name in relationship_fields:
+            field_value = entity.get(field_name)
+            if not field_value:
+                continue
+
+            values = field_value if isinstance(field_value, list) else [field_value]
+            for value in values:
+                if isinstance(value, dict):
+                    ref_id = value.get('@id')
+                    value_types = get_types_list(value)
+
+                    if value_types:
+                        # Inline entity with @type - add as a node
+                        process_entity(value, parent_id=entity_id, relation=field_name)
+                    elif ref_id and entity_id:
+                        # Just a reference ({@id: "..."})
+                        connections.append({
+                            'from': entity_id,
+                            'relation': field_name,
+                            'to': ref_id
+                        })
+                elif isinstance(value, str) and value.startswith('#') and entity_id:
                     connections.append({
                         'from': entity_id,
-                        'relation': rel_field,
-                        'to': target_id
+                        'relation': field_name,
+                        'to': value
                     })
+
+    # Process all top-level entities
+    for entity in entities:
+        process_entity(entity)
 
     return {
         'entities': graph_entities,
@@ -342,6 +425,7 @@ def analyze():
     """
     data = request.get_json()
     url = data.get('url')
+    render_js = data.get('render_js', False)
 
     if not url:
         return jsonify({'error': 'URL is required'}), 400
@@ -351,7 +435,7 @@ def analyze():
 
     try:
         # Fetch and extract
-        html = fetch_page(url)
+        html = fetch_page(url, render_js=render_js)
         schemas = extract_schemas(html, url)
 
         # Flatten all JSON-LD into entities
@@ -427,6 +511,7 @@ def extract_schema():
     """Legacy endpoint - returns raw schema data"""
     data = request.get_json()
     url = data.get('url')
+    render_js = data.get('render_js', False)
     if not url:
         return jsonify({'error': 'URL is required'}), 400
 
@@ -434,7 +519,7 @@ def extract_schema():
         return jsonify({'error': 'Invalid URL format. Must start with http:// or https://'}), 400
 
     try:
-        html = fetch_page(url)
+        html = fetch_page(url, render_js=render_js)
         base_url = get_base_url(html, url)
         metadata = extruct.extract(html, base_url=base_url)
         return jsonify(metadata)
@@ -453,6 +538,7 @@ def extract_entities():
     """
     data = request.get_json()
     url = data.get('url')
+    render_js = data.get('render_js', False)
     if not url:
         return jsonify({'error': 'URL is required'}), 400
 
@@ -460,7 +546,7 @@ def extract_entities():
         return jsonify({'error': 'Invalid URL format. Must start with http:// or https://'}), 400
 
     try:
-        html = fetch_page(url)
+        html = fetch_page(url, render_js=render_js)
         schemas = extract_schemas(html, url)
 
         json_ld = schemas.get('json-ld', [])
