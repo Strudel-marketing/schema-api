@@ -3,110 +3,10 @@ import requests
 import extruct
 from w3lib.html import get_base_url
 from urllib.parse import urlparse
-import re
 from recommendations import analyze_schemas, SCHEMA_REQUIREMENTS
 
 app = Flask(__name__)
 app.url_map.strict_slashes = False
-
-# Google's required fields for Rich Results eligibility
-RICH_RESULTS_REQUIREMENTS = {
-    'Product': {
-        'required': ['name'],
-        'recommended': ['image', 'description', 'offers', 'aggregateRating', 'review', 'brand', 'sku'],
-        'rich_result': 'Product snippets, Merchant listings'
-    },
-    'Article': {
-        'required': ['headline', 'image', 'datePublished', 'author'],
-        'recommended': ['dateModified', 'publisher'],
-        'rich_result': 'Article rich results'
-    },
-    'NewsArticle': {
-        'required': ['headline', 'image', 'datePublished', 'author'],
-        'recommended': ['dateModified', 'publisher'],
-        'rich_result': 'News rich results'
-    },
-    'BlogPosting': {
-        'required': ['headline', 'image', 'datePublished', 'author'],
-        'recommended': ['dateModified', 'publisher'],
-        'rich_result': 'Article rich results'
-    },
-    'LocalBusiness': {
-        'required': ['name', 'address'],
-        'recommended': ['telephone', 'openingHours', 'image', 'priceRange', 'geo', 'url'],
-        'rich_result': 'Local Business panel'
-    },
-    'Organization': {
-        'required': ['name'],
-        'recommended': ['logo', 'url', 'sameAs', 'contactPoint', 'address'],
-        'rich_result': 'Knowledge Panel'
-    },
-    'FAQPage': {
-        'required': ['mainEntity'],
-        'recommended': [],
-        'rich_result': 'FAQ rich results'
-    },
-    'HowTo': {
-        'required': ['name', 'step'],
-        'recommended': ['image', 'totalTime', 'estimatedCost'],
-        'rich_result': 'How-to rich results'
-    },
-    'Recipe': {
-        'required': ['name', 'image'],
-        'recommended': ['author', 'datePublished', 'description', 'recipeIngredient', 'recipeInstructions', 'nutrition', 'aggregateRating'],
-        'rich_result': 'Recipe rich results'
-    },
-    'Event': {
-        'required': ['name', 'startDate', 'location'],
-        'recommended': ['endDate', 'image', 'description', 'offers', 'performer', 'organizer'],
-        'rich_result': 'Event rich results'
-    },
-    'VideoObject': {
-        'required': ['name', 'description', 'thumbnailUrl', 'uploadDate'],
-        'recommended': ['duration', 'contentUrl', 'embedUrl'],
-        'rich_result': 'Video rich results'
-    },
-    'WebSite': {
-        'required': ['name', 'url'],
-        'recommended': ['potentialAction'],
-        'rich_result': 'Sitelinks Search Box'
-    },
-    'WebPage': {
-        'required': [],
-        'recommended': ['name', 'description', 'datePublished', 'dateModified'],
-        'rich_result': None
-    },
-    'BreadcrumbList': {
-        'required': ['itemListElement'],
-        'recommended': [],
-        'rich_result': 'Breadcrumb trail'
-    },
-    'JobPosting': {
-        'required': ['title', 'description', 'datePosted', 'hiringOrganization', 'jobLocation'],
-        'recommended': ['validThrough', 'employmentType', 'baseSalary'],
-        'rich_result': 'Job posting rich results'
-    },
-    'Review': {
-        'required': ['itemReviewed', 'author'],
-        'recommended': ['reviewRating', 'datePublished'],
-        'rich_result': 'Review snippet'
-    },
-    'AggregateRating': {
-        'required': ['ratingValue', 'ratingCount'],
-        'recommended': ['bestRating', 'worstRating'],
-        'rich_result': 'Star ratings'
-    },
-    'Course': {
-        'required': ['name', 'description', 'provider'],
-        'recommended': ['offers'],
-        'rich_result': 'Course rich results'
-    },
-    'SoftwareApplication': {
-        'required': ['name', 'offers'],
-        'recommended': ['operatingSystem', 'applicationCategory', 'aggregateRating'],
-        'rich_result': 'Software App rich results'
-    },
-}
 
 # Social platforms for sameAs analysis
 SOCIAL_PLATFORMS = {
@@ -122,6 +22,12 @@ SOCIAL_PLATFORMS = {
     'wikidata.org': 'wikidata',
     'wikipedia.org': 'wikipedia',
 }
+
+
+def validate_url(url):
+    """Validate that a URL has a proper format"""
+    parsed = urlparse(url)
+    return parsed.scheme in ('http', 'https') and bool(parsed.netloc)
 
 
 def fetch_page(url):
@@ -159,11 +65,13 @@ def flatten_graph(json_ld_list):
 
     for block_idx, block in enumerate(json_ld_list):
         if '@graph' in block:
-            for entity in block['@graph']:
+            for entity_idx, entity in enumerate(block['@graph']):
                 entity['_source'] = f'json_ld[{block_idx}].@graph'
+                entity['_source_index'] = entity_idx
                 entities.append(entity)
         else:
             block['_source'] = f'json_ld[{block_idx}]'
+            block['_source_index'] = 0
             entities.append(block)
 
     return entities
@@ -271,9 +179,6 @@ def build_identity(entities, page_url):
         'website': None,
         'page': None
     }
-
-    parsed_url = urlparse(page_url)
-    domain = f"{parsed_url.scheme}://{parsed_url.netloc}"
 
     for entity in entities:
         types = get_types_list(entity)
@@ -394,212 +299,6 @@ def extract_opengraph(og_data):
     }
 
 
-def detect_duplicate_ids(entities):
-    """Detect duplicate @id definitions"""
-    id_occurrences = {}
-
-    for entity in entities:
-        entity_id = entity.get('@id')
-        if not entity_id:
-            continue
-
-        # Only count entities with actual properties (not just references)
-        prop_count = len([k for k in entity.keys() if not k.startswith('_') and k not in ['@id', '@context']])
-        if prop_count > 1:  # Has more than just @type
-            if entity_id not in id_occurrences:
-                id_occurrences[entity_id] = []
-            id_occurrences[entity_id].append({
-                'source': entity.get('_source'),
-                'types': get_types_list(entity),
-                'name': entity.get('name')
-            })
-
-    duplicates = []
-    for id_val, occurrences in id_occurrences.items():
-        if len(occurrences) > 1:
-            duplicates.append({
-                'id': id_val,
-                'count': len(occurrences),
-                'locations': [o['source'] for o in occurrences],
-                'types': occurrences[0]['types']
-            })
-
-    return duplicates
-
-
-def check_missing_fields(entity, entity_type):
-    """Check for missing required and recommended fields"""
-    requirements = RICH_RESULTS_REQUIREMENTS.get(entity_type, {})
-    required = requirements.get('required', [])
-    recommended = requirements.get('recommended', [])
-
-    missing_required = []
-    missing_recommended = []
-
-    for field in required:
-        if field not in entity or not entity[field]:
-            missing_required.append(field)
-
-    for field in recommended:
-        if field not in entity or not entity[field]:
-            missing_recommended.append(field)
-
-    return missing_required, missing_recommended
-
-
-def generate_actions(entities, identity, page_url):
-    """Generate actionable items"""
-    critical = []
-    recommended = []
-    optional = []
-
-    # Check for duplicate IDs
-    duplicates = detect_duplicate_ids(entities)
-    for dup in duplicates:
-        critical.append({
-            'action': 'merge_duplicate_entities',
-            'confidence': 'certain',
-            'target': dup['id'],
-            'types': dup['types'],
-            'reason': f"Same @id defined {dup['count']} times",
-            'impact': 'Google may misunderstand entity identity',
-            'locations': dup['locations']
-        })
-
-    # Check for entities without @type
-    for entity in entities:
-        if not get_types_list(entity):
-            critical.append({
-                'action': 'add_type',
-                'confidence': 'certain',
-                'target': entity.get('@id', entity.get('_source')),
-                'reason': 'Schema without @type is invalid',
-                'impact': 'Google will ignore this schema entirely'
-            })
-
-    # Check for missing fields per entity type
-    for entity in entities:
-        types = get_types_list(entity)
-        for entity_type in types:
-            if entity_type in RICH_RESULTS_REQUIREMENTS:
-                missing_req, missing_rec = check_missing_fields(entity, entity_type)
-
-                for field in missing_req:
-                    critical.append({
-                        'action': 'add_required_field',
-                        'confidence': 'certain',
-                        'target': entity_type,
-                        'field': field,
-                        'entity_id': entity.get('@id'),
-                        'reason': f"Required for {entity_type} validation",
-                        'impact': RICH_RESULTS_REQUIREMENTS[entity_type].get('rich_result', 'Schema validation')
-                    })
-
-                for field in missing_rec:
-                    recommended.append({
-                        'action': 'add_recommended_field',
-                        'confidence': 'certain',
-                        'target': entity_type,
-                        'field': field,
-                        'entity_id': entity.get('@id'),
-                        'reason': f"Recommended for better {entity_type} display",
-                        'impact': 'Enhanced rich result appearance'
-                    })
-
-    # Check Organization identity
-    if identity['organization']:
-        org = identity['organization']
-
-        # Check for missing sameAs (important for Knowledge Panel)
-        same_as = org.get('same_as', {})
-        if not same_as.get('wikidata'):
-            recommended.append({
-                'action': 'add_sameAs',
-                'confidence': 'suggestion',
-                'target': 'Organization',
-                'platform': 'wikidata',
-                'reason': 'Wikidata link helps Google verify entity identity',
-                'impact': 'Higher chance for Knowledge Panel'
-            })
-
-        social = same_as.get('social', {})
-        missing_social = []
-        for platform in ['facebook', 'linkedin', 'instagram', 'twitter']:
-            if platform not in social:
-                missing_social.append(platform)
-
-        if missing_social:
-            optional.append({
-                'action': 'add_sameAs',
-                'confidence': 'suggestion',
-                'target': 'Organization',
-                'platforms': missing_social,
-                'reason': 'Social profiles strengthen entity verification',
-                'impact': 'Better E-E-A-T signals'
-            })
-
-        # Check for missing logo
-        if not org.get('logo'):
-            recommended.append({
-                'action': 'add_field',
-                'confidence': 'certain',
-                'target': 'Organization',
-                'field': 'logo',
-                'reason': 'Logo is required for Knowledge Panel',
-                'impact': 'No logo in search results'
-            })
-
-    # Check if Organization exists at all
-    if not identity['organization']:
-        found_org = any(categorize_entity(get_types_list(e)) == 'organization' for e in entities)
-        if not found_org:
-            recommended.append({
-                'action': 'add_schema',
-                'confidence': 'suggestion',
-                'schema_type': 'Organization',
-                'reason': 'No Organization schema found',
-                'impact': 'Missing core entity identity'
-            })
-
-    # Check WebSite schema
-    if identity['website']:
-        if not identity['website'].get('has_search_action'):
-            optional.append({
-                'action': 'add_search_action',
-                'confidence': 'suggestion',
-                'target': 'WebSite',
-                'reason': 'SearchAction enables Sitelinks Search Box',
-                'impact': 'Search box in Google results'
-            })
-    else:
-        found_website = any(categorize_entity(get_types_list(e)) == 'website' for e in entities)
-        if not found_website:
-            recommended.append({
-                'action': 'add_schema',
-                'confidence': 'suggestion',
-                'schema_type': 'WebSite',
-                'reason': 'No WebSite schema found',
-                'impact': 'Missing site-level identity'
-            })
-
-    # Check BreadcrumbList
-    found_breadcrumb = any(categorize_entity(get_types_list(e)) == 'breadcrumb' for e in entities)
-    if not found_breadcrumb:
-        optional.append({
-            'action': 'add_schema',
-            'confidence': 'suggestion',
-            'schema_type': 'BreadcrumbList',
-            'reason': 'BreadcrumbList shows navigation path in search results',
-            'impact': 'Breadcrumb trail in search results'
-        })
-
-    return {
-        'critical': critical,
-        'recommended': recommended,
-        'optional': optional
-    }
-
-
 def check_rich_results_eligibility(entities):
     """Check which Rich Results this page is eligible for"""
     eligible = []
@@ -609,15 +308,15 @@ def check_rich_results_eligibility(entities):
     for entity in entities:
         types_found.update(get_types_list(entity))
 
-    for entity_type, requirements in RICH_RESULTS_REQUIREMENTS.items():
+    for entity_type, requirements in SCHEMA_REQUIREMENTS.items():
         if entity_type in types_found:
             rich_result = requirements.get('rich_result')
             if rich_result:
-                # Check if all required fields are present
+                required_fields = requirements.get('required', [])
                 for entity in entities:
                     if entity_type in get_types_list(entity):
-                        missing_req, _ = check_missing_fields(entity, entity_type)
-                        if not missing_req:
+                        missing = [f for f in required_fields if not entity.get(f)]
+                        if not missing:
                             if rich_result not in eligible:
                                 eligible.append(rich_result)
                         else:
@@ -628,21 +327,6 @@ def check_rich_results_eligibility(entities):
         'eligible': eligible,
         'potential': potential
     }
-
-
-def calculate_health(actions):
-    """Calculate overall health status"""
-    critical_count = len(actions['critical'])
-    recommended_count = len(actions['recommended'])
-
-    if critical_count > 0:
-        return 'broken'
-    elif recommended_count > 3:
-        return 'needs_work'
-    elif recommended_count > 0:
-        return 'good'
-    else:
-        return 'healthy'
 
 
 @app.route('/health', methods=['GET'])
@@ -662,6 +346,9 @@ def analyze():
     if not url:
         return jsonify({'error': 'URL is required'}), 400
 
+    if not validate_url(url):
+        return jsonify({'error': 'Invalid URL format. Must start with http:// or https://'}), 400
+
     try:
         # Fetch and extract
         html = fetch_page(url)
@@ -680,13 +367,13 @@ def analyze():
         # Extract OpenGraph
         opengraph = extract_opengraph(schemas.get('opengraph'))
 
-        # === NEW: Comprehensive recommendations engine ===
+        # Comprehensive recommendations engine
         analysis = analyze_schemas(entities, url, opengraph)
 
         # Check Rich Results eligibility
         rich_results = check_rich_results_eligibility(entities)
 
-        # Calculate health based on new analysis
+        # Calculate health based on analysis
         severity_counts = analysis['by_severity']
         if severity_counts['critical'] > 0:
             health_status = 'broken'
@@ -743,13 +430,19 @@ def extract_schema():
     if not url:
         return jsonify({'error': 'URL is required'}), 400
 
+    if not validate_url(url):
+        return jsonify({'error': 'Invalid URL format. Must start with http:// or https://'}), 400
+
     try:
         html = fetch_page(url)
         base_url = get_base_url(html, url)
         metadata = extruct.extract(html, base_url=base_url)
         return jsonify(metadata)
+    except requests.exceptions.RequestException as e:
+        return jsonify({'error': f'Failed to fetch URL: {str(e)}'}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
 @app.route('/extract-entities', methods=['POST'])
 def extract_entities():
@@ -763,48 +456,38 @@ def extract_entities():
     if not url:
         return jsonify({'error': 'URL is required'}), 400
 
+    if not validate_url(url):
+        return jsonify({'error': 'Invalid URL format. Must start with http:// or https://'}), 400
+
     try:
         html = fetch_page(url)
-        base_url = get_base_url(html, url)
-        metadata = extruct.extract(html, base_url=base_url, syntaxes=['json-ld'])
+        schemas = extract_schemas(html, url)
 
-        json_ld = metadata.get('json-ld', [])
+        json_ld = schemas.get('json-ld', [])
+        flat_entities = flatten_graph(json_ld)
 
-        # Flatten all entities from @graph arrays
+        # Build structured entity list for Neo4j import
         entities = []
-        for block_idx, block in enumerate(json_ld):
-            context = block.get('@context', 'https://schema.org')
+        for entity in flat_entities:
+            types = get_types_list(entity)
+            if not types:
+                continue
 
-            if '@graph' in block:
-                for entity_idx, entity in enumerate(block['@graph']):
-                    types = get_types_list(entity)
-                    if not types:
-                        continue
+            source_str = entity.get('_source', '')
+            is_graph = '.@graph' in source_str
+            block_idx = int(source_str.split('[')[1].split(']')[0]) if '[' in source_str else 0
 
-                    entities.append({
-                        'id': entity.get('@id'),
-                        'type': types,
-                        'category': categorize_entity(types),
-                        'data': entity,
-                        'source': {
-                            'block': block_idx,
-                            'location': '@graph',
-                            'index': entity_idx
-                        }
-                    })
-            elif block.get('@type'):
-                types = get_types_list(block)
-                entities.append({
-                    'id': block.get('@id'),
-                    'type': types,
-                    'category': categorize_entity(types),
-                    'data': block,
-                    'source': {
-                        'block': block_idx,
-                        'location': 'root',
-                        'index': 0
-                    }
-                })
+            entities.append({
+                'id': entity.get('@id'),
+                'type': types,
+                'category': categorize_entity(types),
+                'data': entity,
+                'source': {
+                    'block': block_idx,
+                    'location': '@graph' if is_graph else 'root',
+                    'index': entity.get('_source_index', 0)
+                }
+            })
 
         # Count by type
         type_counts = {}
