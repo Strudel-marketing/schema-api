@@ -43,6 +43,16 @@
    ```
    The API will be available at `http://localhost:3015`.
 
+4. **Run regression tests**
+   ```bash
+   python -m unittest discover -s tests -v
+   ```
+   The fixtures cover entity normalization and recommendation semantics; no live URLs are required.
+
+### Recommendation evidence signals
+
+Generic FAQ, HowTo, Review, and AggregateRating opportunities are emitted only when the caller supplies corresponding visible-content evidence through `content_signals`. The `/analyze` endpoint accepts this optional object and defaults to no evidence, so it does not invent these opportunities from page type alone.
+
 ### Docker Setup
 
 1. **Build and run with Docker Compose**

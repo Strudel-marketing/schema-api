@@ -3,9 +3,10 @@ Comprehensive Schema Recommendations Engine
 Rich, context-aware SEO recommendations for structured data
 """
 
-from typing import Dict, List, Any, Optional, Set
+from typing import Dict, List, Any, Optional, Set, Tuple
 from dataclasses import dataclass
 from enum import Enum
+from copy import deepcopy
 import re
 
 
@@ -849,11 +850,24 @@ SOCIAL_PLATFORMS = {
 class RecommendationEngine:
     """Generates comprehensive, context-aware schema recommendations"""
 
-    def __init__(self, entities: List[Dict], url: str, opengraph: Optional[Dict] = None):
-        self.entities = entities
+    def __init__(
+        self,
+        entities: List[Dict],
+        url: str,
+        opengraph: Optional[Dict] = None,
+        content_signals: Optional[Dict[str, bool]] = None,
+    ):
+        self.entity_conflicts: Dict[str, Set[str]] = {}
+        self.entities = self._normalize_entities(entities)
         self.url = url
         self.opengraph = opengraph or {}
+        self.content_signals = {
+            key: True
+            for key, value in (content_signals or {}).items()
+            if key in {'faq', 'howto', 'reviews'} and value is True
+        }
         self.recommendations: List[Recommendation] = []
+        self._recommendation_keys: Set[Tuple[Any, ...]] = set()
 
         # Pre-compute useful data
         self.types_found = self._extract_all_types()
@@ -861,6 +875,53 @@ class RecommendationEngine:
         self.ids_found = self._extract_all_ids()
         self.page_type = self._detect_page_type()
         self.identity = self._build_identity()
+
+    def _normalize_entities(self, entities: List[Dict]) -> List[Dict]:
+        """Merge compatible JSON-LD definitions that share an @id."""
+        normalized: List[Dict] = []
+        by_id: Dict[str, Dict] = {}
+
+        for raw_entity in entities:
+            entity = deepcopy(raw_entity)
+            entity_id = entity.get('@id')
+            if not entity_id:
+                normalized.append(entity)
+                continue
+
+            if entity_id not in by_id:
+                by_id[entity_id] = entity
+                normalized.append(entity)
+                continue
+
+            self._merge_entity_values(by_id[entity_id], entity, entity_id, '')
+
+        return normalized
+
+    def _merge_entity_values(self, target: Dict, incoming: Dict, entity_id: str, path: str) -> None:
+        """Deep-merge compatible values and remember conflicting scalar paths."""
+        for key, incoming_value in incoming.items():
+            if key.startswith('_'):
+                continue
+
+            field_path = f'{path}.{key}' if path else key
+            if key not in target or target[key] in (None, '', []):
+                target[key] = deepcopy(incoming_value)
+                continue
+
+            current_value = target[key]
+            if key == '@type':
+                current_types = current_value if isinstance(current_value, list) else [current_value]
+                incoming_types = incoming_value if isinstance(incoming_value, list) else [incoming_value]
+                merged_types = list(dict.fromkeys(current_types + incoming_types))
+                target[key] = merged_types[0] if len(merged_types) == 1 else merged_types
+            elif isinstance(current_value, dict) and isinstance(incoming_value, dict):
+                self._merge_entity_values(current_value, incoming_value, entity_id, field_path)
+            elif isinstance(current_value, list) and isinstance(incoming_value, list):
+                for item in incoming_value:
+                    if item not in current_value:
+                        current_value.append(deepcopy(item))
+            elif current_value != incoming_value:
+                self.entity_conflicts.setdefault(entity_id, set()).add(field_path)
 
     def _extract_all_types(self) -> Set[str]:
         """Extract all schema types found"""
@@ -963,7 +1024,22 @@ class RecommendationEngine:
         return identity
 
     def _add(self, rec: Recommendation):
-        """Add a recommendation"""
+        """Add a recommendation, deduplicating only explicitly equivalent ideas."""
+        equivalent_groups = {
+            'optional_schema_FAQPage': 'faq_opportunity',
+            'opportunity_faq': 'faq_opportunity',
+            'optional_schema_HowTo': 'howto_opportunity',
+            'opportunity_howto': 'howto_opportunity',
+        }
+        group = equivalent_groups.get(rec.id)
+        if not group:
+            self.recommendations.append(rec)
+            return
+
+        key = (group, rec.entity_id)
+        if key in self._recommendation_keys:
+            return
+        self._recommendation_keys.add(key)
         self.recommendations.append(rec)
 
     def analyze(self) -> Dict[str, Any]:
@@ -1243,24 +1319,24 @@ class RecommendationEngine:
     def _check_structural_issues(self):
         """Check for structural problems in schema graph"""
 
-        # 1. Duplicate @id definitions
-        for entity_id, occurrences in self.ids_found.items():
-            # Count only entities with actual content (not just references)
-            full_entities = [e for e in occurrences if len([k for k in e.keys() if not k.startswith('_') and k not in ['@id', '@context', '@type']]) > 0]
-            if len(full_entities) > 1:
-                types = self._get_types(full_entities[0])
-                self._add(Recommendation(
-                    id='duplicate_id',
-                    title=f'@id כפול: {entity_id[:50]}',
-                    description=f'אותו @id מוגדר {len(full_entities)} פעמים עם תוכן שונה. זה יוצר בלבול עבור Google.',
-                    severity=Severity.HIGH,
-                    category=Category.STRUCTURAL,
-                    impact='Google עלול לערבב בין הישויות או להתעלם מהן',
-                    fix='מזג את ההגדרות לישות אחת או השתמש ב-@id ייחודי לכל ישות',
-                    entity_id=entity_id,
-                    schema_type=types[0] if types else None,
-                    priority_score=90
-                ))
+        # 1. Conflicting definitions for the same @id. Compatible duplicate
+        # definitions were merged during initialization and are valid JSON-LD.
+        for entity_id, conflict_paths in self.entity_conflicts.items():
+            entity = self.ids_found.get(entity_id, [{}])[0]
+            types = self._get_types(entity)
+            fields = ', '.join(sorted(conflict_paths))
+            self._add(Recommendation(
+                id='duplicate_id',
+                title=f'סתירה באותו @id: {entity_id[:50]}',
+                description=f'אותו @id מכיל ערכים סותרים בשדות: {fields}.',
+                severity=Severity.HIGH,
+                category=Category.STRUCTURAL,
+                impact='Google עלול לערבב בין הישויות או להתעלם מהן',
+                fix='אחד את הערכים הסותרים או השתמש ב-@id נפרד לישויות שונות',
+                entity_id=entity_id,
+                schema_type=types[0] if types else None,
+                priority_score=90
+            ))
 
         # 2. Broken @id references
         self._check_broken_references()
@@ -1342,11 +1418,11 @@ class RecommendationEngine:
 
     def _check_multiple_organizations(self):
         """Check for multiple organizations without clear hierarchy"""
-        org_types = ['Organization', 'LocalBusiness', 'Corporation', 'NGO']
+        org_types = {'Organization', 'LocalBusiness', 'Corporation', 'NGO', 'TravelAgency'}
         orgs = []
         for entity in self.entities:
             types = self._get_types(entity)
-            if any(t in types or any(ot in t for ot in ['Organization', 'Business']) for t in types):
+            if any(t in org_types or t.endswith('Organization') or t.endswith('Business') for t in types):
                 orgs.append(entity)
 
         if len(orgs) > 1:
@@ -1401,6 +1477,12 @@ class RecommendationEngine:
                 for entity in self.entities_by_type[schema_type]:
                     # Check recommended fields
                     for field in requirements.get('recommended', []):
+                        if (
+                            schema_type == 'Product'
+                            and field in {'gtin', 'mpn'}
+                            and self._product_represents_tour(entity)
+                        ):
+                            continue
                         if not entity.get(field):
                             priority = requirements.get('priority', 50) - 10
                             self._add(Recommendation(
@@ -1420,6 +1502,107 @@ class RecommendationEngine:
 
                     # Check nested object recommended fields
                     self._check_nested_recommended(entity, schema_type, requirements)
+
+    def _product_represents_tour(self, product: Dict) -> bool:
+        """Return True only when Product and TouristTrip identify the same tour."""
+        product_id = product.get('@id', '').split('#', 1)[0].rstrip('/')
+        product_url = str(product.get('url', '')).split('#', 1)[0].rstrip('/')
+        product_name = str(product.get('name', ''))
+
+        for trip in self.entities_by_type.get('TouristTrip', []):
+            trip_id = trip.get('@id', '').split('#', 1)[0].rstrip('/')
+            trip_url = str(trip.get('url', '')).split('#', 1)[0].rstrip('/')
+            same_document = bool(
+                (product_id and trip_id and product_id == trip_id)
+                or (product_url and trip_url and product_url == trip_url)
+            )
+            trip_name = str(trip.get('name', ''))
+            exact_name = bool(
+                product_name.strip()
+                and re.sub(r'\s+', ' ', product_name.strip().lower())
+                == re.sub(r'\s+', ' ', trip_name.strip().lower())
+            )
+            if exact_name or (same_document and self._names_refer_to_same_subject(product_name, trip_name)):
+                return True
+        return False
+
+    @staticmethod
+    def _names_refer_to_same_subject(first: str, second: str) -> bool:
+        """Match the subject, not generic tour wording, including Hebrew prefixes."""
+        first_normalized = re.sub(r'\s+', ' ', first.strip().lower())
+        second_normalized = re.sub(r'\s+', ' ', second.strip().lower())
+        if first_normalized and first_normalized == second_normalized:
+            return True
+
+        generic_tokens = {
+            'סיור', 'טיול', 'קולינרי', 'קולינרית', 'אוכל', 'טעימות', 'מודרך', 'מודרכת', 'פרטי', 'פרטית',
+            'שוק', 'tour', 'trip', 'culinary', 'food', 'tasting', 'guided', 'private', 'walking', 'market',
+        }
+        hebrew_prefixes = {'ב', 'ל', 'ה', 'ו', 'כ', 'ש'}
+
+        def subject_tokens(value: str) -> List[str]:
+            tokens = []
+            for token in re.findall(r'\w+', value):
+                variants = {token}
+                if len(token) > 3 and token[0] in hebrew_prefixes:
+                    variants.add(token[1:])
+                if not variants & generic_tokens:
+                    tokens.append(token)
+            return tokens
+
+        def equivalent(left: str, right: str) -> bool:
+            left_variants = {left}
+            right_variants = {right}
+            if len(left) > 3 and left[0] in hebrew_prefixes:
+                left_variants.add(left[1:])
+            if len(right) > 3 and right[0] in hebrew_prefixes:
+                right_variants.add(right[1:])
+            return bool(left_variants & right_variants)
+
+        first_subject = subject_tokens(first_normalized)
+        second_subject = subject_tokens(second_normalized)
+        if not first_subject or not second_subject:
+            return False
+
+        unused = list(second_subject)
+        matches = 0
+        for token in first_subject:
+            match_index = next((i for i, candidate in enumerate(unused) if equivalent(token, candidate)), None)
+            if match_index is not None:
+                matches += 1
+                unused.pop(match_index)
+
+        return matches == len(first_subject) == len(second_subject) or (
+            matches >= 2 and matches / max(len(first_subject), len(second_subject)) >= 0.75
+        )
+
+    def _has_opportunity_evidence(self, schema_type: str) -> bool:
+        signal_by_schema = {
+            'FAQPage': 'faq',
+            'HowTo': 'howto',
+            'Review': 'reviews',
+            'AggregateRating': 'reviews',
+        }
+        signal = signal_by_schema.get(schema_type)
+        return signal is None or bool(self.content_signals.get(signal))
+
+    def _is_content_archive(self) -> bool:
+        def contains_commerce_type(value: Any) -> bool:
+            if isinstance(value, dict):
+                types = self._get_types(value)
+                if any(t in {'Product', 'Offer', 'AggregateOffer'} for t in types):
+                    return True
+                return any(contains_commerce_type(child) for child in value.values())
+            if isinstance(value, list):
+                return any(contains_commerce_type(child) for child in value)
+            return False
+
+        has_commerce_evidence = any(contains_commerce_type(entity) for entity in self.entities)
+        return (
+            self.page_type == 'category'
+            and 'CollectionPage' in self.types_found
+            and not has_commerce_evidence
+        )
 
     def _check_nested_recommended(self, entity: Dict, schema_type: str, requirements: Dict):
         """Check recommended fields in nested objects"""
@@ -1469,22 +1652,25 @@ class RecommendationEngine:
                     continue
 
                 req = SCHEMA_REQUIREMENTS.get(schema_type, {})
+                is_optional_content_itemlist = schema_type == 'ItemList' and self._is_content_archive()
                 self._add(Recommendation(
                     id=f'missing_schema_{schema_type}',
                     title=f'חסרה סכמת {schema_type}',
                     description=f'לפי סוג העמוד ({self.page_type}), מצופה שתהיה סכמת {schema_type}.',
-                    severity=Severity.HIGH,
+                    severity=Severity.LOW if is_optional_content_itemlist else Severity.HIGH,
                     category=Category.MISSING_SCHEMA,
                     impact=req.get('rich_result', 'זיהוי תוכן על ידי Google'),
                     fix=f'הוסף סכמת {schema_type} עם השדות הנדרשים: {", ".join(req.get("required", []))}',
                     schema_type=schema_type,
                     rich_result=req.get('rich_result'),
-                    priority_score=req.get('priority', 70)
+                    priority_score=45 if is_optional_content_itemlist else req.get('priority', 70)
                 ))
 
         # Check optional schemas (lower priority)
         for schema_type in optional:
             if schema_type not in self.types_found:
+                if not self._has_opportunity_evidence(schema_type):
+                    continue
                 req = SCHEMA_REQUIREMENTS.get(schema_type, {})
                 if req.get('rich_result'):  # Only suggest if has Rich Result
                     self._add(Recommendation(
@@ -1674,8 +1860,12 @@ class RecommendationEngine:
     def _check_opportunities(self):
         """Check for Rich Results opportunities"""
 
-        # FAQPage opportunity for content pages
-        if self.page_type in ['article', 'product', 'local_business'] and 'FAQPage' not in self.types_found:
+        # FAQPage opportunity only when upstream content analysis found FAQ evidence
+        if (
+            self.content_signals.get('faq')
+            and self.page_type in ['article', 'product', 'local_business']
+            and 'FAQPage' not in self.types_found
+        ):
             self._add(Recommendation(
                 id='opportunity_faq',
                 title='הזדמנות: הוסף FAQPage',
@@ -1689,8 +1879,8 @@ class RecommendationEngine:
                 priority_score=60
             ))
 
-        # HowTo opportunity for articles
-        if self.page_type == 'article' and 'HowTo' not in self.types_found:
+        # HowTo opportunity only when upstream content analysis found steps
+        if self.content_signals.get('howto') and self.page_type == 'article' and 'HowTo' not in self.types_found:
             self._add(Recommendation(
                 id='opportunity_howto',
                 title='הזדמנות: הוסף HowTo',
@@ -1739,8 +1929,8 @@ class RecommendationEngine:
                         priority_score=70
                     ))
 
-        # AggregateRating opportunities
-        if 'Product' in self.entities_by_type:
+        # Rating opportunities require evidence that reviews are visibly present.
+        if self.content_signals.get('reviews') and 'Product' in self.entities_by_type:
             for product in self.entities_by_type['Product']:
                 if not product.get('aggregateRating') and not product.get('review'):
                     self._add(Recommendation(
@@ -1757,7 +1947,7 @@ class RecommendationEngine:
                         priority_score=75
                     ))
 
-        if 'LocalBusiness' in self.entities_by_type:
+        if self.content_signals.get('reviews') and 'LocalBusiness' in self.entities_by_type:
             for business in self.entities_by_type['LocalBusiness']:
                 if not business.get('aggregateRating'):
                     self._add(Recommendation(
@@ -1913,7 +2103,12 @@ class RecommendationEngine:
 # MAIN ANALYSIS FUNCTION
 # =============================================================================
 
-def analyze_schemas(entities: List[Dict], url: str, opengraph: Optional[Dict] = None) -> Dict[str, Any]:
+def analyze_schemas(
+    entities: List[Dict],
+    url: str,
+    opengraph: Optional[Dict] = None,
+    content_signals: Optional[Dict[str, bool]] = None,
+) -> Dict[str, Any]:
     """
     Main entry point for schema analysis.
 
@@ -1921,9 +2116,10 @@ def analyze_schemas(entities: List[Dict], url: str, opengraph: Optional[Dict] = 
         entities: List of flattened JSON-LD entities
         url: Page URL
         opengraph: Optional OpenGraph data
+        content_signals: Optional evidence flags from visible-content analysis
 
     Returns:
         Comprehensive analysis with recommendations
     """
-    engine = RecommendationEngine(entities, url, opengraph)
+    engine = RecommendationEngine(entities, url, opengraph, content_signals)
     return engine.analyze()

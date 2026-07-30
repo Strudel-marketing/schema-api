@@ -426,6 +426,7 @@ def analyze():
     data = request.get_json()
     url = data.get('url')
     render_js = data.get('render_js', False)
+    content_signals = data.get('content_signals') if isinstance(data.get('content_signals'), dict) else None
 
     if not url:
         return jsonify({'error': 'URL is required'}), 400
@@ -452,7 +453,7 @@ def analyze():
         opengraph = extract_opengraph(schemas.get('opengraph'))
 
         # Comprehensive recommendations engine
-        analysis = analyze_schemas(entities, url, opengraph)
+        analysis = analyze_schemas(entities, url, opengraph, content_signals)
 
         # Check Rich Results eligibility
         rich_results = check_rich_results_eligibility(entities)
